@@ -1,0 +1,420 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Supervised Learning — Draw, Label, Train, Predict</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#EAF6EC;
+    --surface:#FFFFFF;
+    --surface-2:#E7F3E9;
+    --ink:#1E2635;
+    --ink-muted:#5B6479;
+    --ink-faint:#8B93A6;
+    --border:rgba(30,38,53,0.14);
+    --border-strong:rgba(30,38,53,0.24);
+    --teal:#1F8A70; --teal-bg:#DCF0EA; --teal-ink:#14624F;
+    --coral:#C0392B; --coral-bg:#FBE4DA; --coral-ink:#7A2016;
+    --amber:#C9891A; --amber-bg:#FBEBD4; --amber-ink:#8A5A16;
+    --blue:#2F7BD9; --blue-bg:#E3EEF8; --blue-ink:#1F5FB0;
+    --mono:'IBM Plex Mono', ui-monospace, Menlo, monospace;
+    --sans:'Inter', -apple-system, 'Segoe UI', sans-serif;
+    --radius:14px;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    font-family:var(--sans); background:var(--bg); color:var(--ink);
+    line-height:1.5; padding:20px 16px 60px;
+  }
+  #app{ max-width:980px; margin:0 auto; }
+
+  .header{ text-align:center; margin-bottom:18px; }
+  .kicker{
+    font-family:var(--mono); font-size:11px; letter-spacing:.12em; text-transform:uppercase;
+    color:var(--blue-ink); margin-bottom:6px; font-weight:600;
+  }
+  h1{ font-size:22px; margin:0 0 8px; }
+  .sub{ font-size:13.5px; color:var(--ink-muted); max-width:560px; margin:0 auto; }
+
+  .panels{ display:flex; gap:14px; flex-wrap:wrap; justify-content:center; margin-top:20px; }
+  .panel{
+    background:var(--surface); border:1px solid var(--border); border-radius:var(--radius);
+    padding:14px; box-shadow:0 4px 14px rgba(30,38,53,0.06);
+  }
+  .panel-title{
+    font-family:var(--mono); font-size:11px; font-weight:600; text-transform:uppercase;
+    letter-spacing:.05em; color:var(--ink-faint); margin-bottom:10px; text-align:center;
+  }
+
+  /* ---------- draw panel ---------- */
+  #drawPanel{ width:250px; }
+  #drawCanvas{
+    width:230px; height:290px; border:2px solid var(--border-strong); border-radius:8px;
+    background:#fff; touch-action:none; cursor:crosshair; display:block; margin:0 auto;
+  }
+  .btn-row{ display:flex; gap:8px; margin-top:10px; justify-content:center; }
+  .btn{
+    font-family:var(--sans); font-weight:600; font-size:12.5px;
+    border:1px solid var(--border-strong); background:var(--surface-2); color:var(--ink);
+    border-radius:8px; padding:8px 14px; cursor:pointer;
+  }
+  .btn:hover{ background:var(--blue-bg); border-color:var(--blue); }
+  .btn.primary{ background:var(--blue); color:#fff; border-color:var(--blue); }
+  .btn.primary:hover{ background:var(--blue-ink); }
+  .btn:disabled{ opacity:.45; cursor:not-allowed; }
+  .btn:disabled:hover{ background:var(--surface-2); border-color:var(--border-strong); }
+
+  /* ---------- grid panel ---------- */
+  #gridPanel{ width:190px; }
+  #pixelGrid{
+    display:grid; gap:2px; width:170px; height:220px; margin:0 auto;
+    border:1px solid var(--border-strong); padding:2px; background:var(--border-strong);
+  }
+  .cell{ background:#fff; }
+  .cell.on{ background:var(--ink); }
+  .grid-caption{
+    text-align:center; font-family:var(--mono); font-size:10.5px; color:var(--ink-faint); margin-top:8px;
+  }
+
+  /* ---------- train panel ---------- */
+  #trainPanel{ width:230px; }
+  .digit-grid{ display:grid; grid-template-columns:repeat(5,1fr); gap:6px; margin-bottom:12px; }
+  .digit-btn{
+    font-family:var(--mono); font-weight:700; font-size:15px;
+    border:2px solid var(--border-strong); background:var(--surface-2); color:var(--ink);
+    border-radius:8px; padding:8px 0; cursor:pointer; position:relative;
+  }
+  .digit-btn:hover{ border-color:var(--blue); }
+  .digit-btn.selected{ background:var(--blue); border-color:var(--blue); color:#fff; }
+  .digit-count{
+    position:absolute; top:-6px; right:-6px; background:var(--amber); color:#fff;
+    font-family:var(--mono); font-size:9px; font-weight:700; border-radius:999px;
+    min-width:16px; height:16px; display:flex; align-items:center; justify-content:center; padding:0 3px;
+  }
+  .digit-btn.selected .digit-count{ background:var(--teal); }
+  .add-btn{ width:100%; margin-bottom:8px; }
+  .train-total{
+    font-family:var(--mono); font-size:11.5px; color:var(--ink-muted); text-align:center; margin-top:6px;
+  }
+  .reset-link{
+    display:block; text-align:center; font-family:var(--mono); font-size:10.5px;
+    color:var(--coral-ink); margin-top:10px; cursor:pointer; text-decoration:underline; background:none; border:none;
+  }
+
+  /* ---------- predict panel ---------- */
+  #predictPanel{ width:230px; }
+  .predict-row{
+    display:flex; align-items:center; justify-content:space-between;
+    padding:6px 8px; border-radius:6px; margin-bottom:4px; font-size:13px;
+  }
+  .predict-row.top{ background:var(--teal-bg); font-weight:700; color:var(--teal-ink); }
+  .predict-label{ font-family:var(--mono); font-weight:700; }
+  .predict-score{ font-family:var(--mono); font-size:12px; }
+  .predict-score.negative{ color:var(--coral-ink); }
+  .predict-score.positive{ color:var(--teal-ink); }
+  .predict-empty{ font-size:12.5px; color:var(--ink-faint); text-align:center; padding:20px 6px; }
+  .predict-bar-track{ height:4px; background:var(--surface-2); border-radius:99px; margin-top:2px; overflow:hidden; }
+  .predict-bar-fill{ height:100%; background:var(--blue); }
+
+  /* ---------- explainer ---------- */
+  .explainer{
+    max-width:820px; margin:26px auto 0; background:var(--blue-bg); border:1px solid var(--blue);
+    border-radius:var(--radius); padding:16px 18px; font-size:13px; color:var(--blue-ink); line-height:1.6;
+  }
+  .explainer b{ color:var(--ink); }
+  .step-badges{ display:flex; gap:8px; flex-wrap:wrap; margin-top:10px; }
+  .step-badge{
+    font-family:var(--mono); font-size:11px; background:#fff; border:1px solid var(--border);
+    border-radius:999px; padding:4px 10px; color:var(--ink-muted);
+  }
+
+  @media (max-width:760px){
+    .panels{ flex-direction:column; align-items:center; }
+    #drawPanel, #gridPanel, #trainPanel, #predictPanel{ width:100%; max-width:280px; }
+  }
+</style>
+</head>
+<body>
+<div id="app">
+
+  <div class="header">
+    <div class="kicker">Machine Learning in Action</div>
+    <h1>✏️ Teach a Model to Recognize Digits</h1>
+    <p class="sub">This is <b>supervised learning</b>, hands-on: you draw a digit, tell the model what it is, and repeat. Once it has seen enough labeled examples, it can guess new drawings on its own.</p>
+  </div>
+
+  <div class="panels">
+    <div class="panel" id="drawPanel">
+      <div class="panel-title">1. Draw</div>
+      <canvas id="drawCanvas" width="230" height="290"></canvas>
+      <div class="btn-row">
+        <button class="btn" id="clearBtn">Clear</button>
+      </div>
+    </div>
+
+    <div class="panel" id="gridPanel">
+      <div class="panel-title">2. Digitize</div>
+      <div id="pixelGrid"></div>
+      <div class="grid-caption" id="gridCaption">6 × 8 pixel grid</div>
+    </div>
+
+    <div class="panel" id="trainPanel">
+      <div class="panel-title">3. Label &amp; Train</div>
+      <div class="digit-grid" id="digitGrid"></div>
+      <button class="btn primary add-btn" id="addBtn" disabled>Add as Training Example</button>
+      <div class="train-total" id="trainTotal">0 training examples collected</div>
+      <button class="reset-link" id="resetTrainingBtn">Reset all training data</button>
+    </div>
+
+    <div class="panel" id="predictPanel">
+      <div class="panel-title">4. Predict</div>
+      <button class="btn primary add-btn" id="predictBtn" disabled>Recognize Drawing</button>
+      <div id="predictResults"><div class="predict-empty">Draw something and add a few training examples first.</div></div>
+    </div>
+  </div>
+
+  <div class="explainer">
+    <b>What's happening here, step by step:</b> Every time you draw a digit and click "Add as Training Example," you're giving the model a labeled example — a pair of (drawing, correct answer). That's the core of supervised learning. The model doesn't know anything on its own; it only learns the patterns you show it. The more examples you give per digit (and the more varied your handwriting styles are), the better it gets at recognizing new, unlabeled drawings.
+    <div class="step-badges">
+      <div class="step-badge">1. Input (X) = the drawing</div>
+      <div class="step-badge">2. Label (y) = the digit you tell it</div>
+      <div class="step-badge">3. Train = store labeled pairs</div>
+      <div class="step-badge">4. Predict = guess y for a new X</div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+(function(){
+  var GRID_COLS = 6, GRID_ROWS = 8;
+  var canvas = document.getElementById('drawCanvas');
+  var ctx = canvas.getContext('2d');
+  var pixelGrid = document.getElementById('pixelGrid');
+  var digitGrid = document.getElementById('digitGrid');
+  var addBtn = document.getElementById('addBtn');
+  var predictBtn = document.getElementById('predictBtn');
+  var trainTotal = document.getElementById('trainTotal');
+  var predictResults = document.getElementById('predictResults');
+  var resetTrainingBtn = document.getElementById('resetTrainingBtn');
+  var clearBtn = document.getElementById('clearBtn');
+
+  var selectedLabel = null;
+  var trainingData = []; // { label: '3', grid: [0/1,...] }
+  var currentGrid = new Array(GRID_COLS * GRID_ROWS).fill(0);
+
+  // ---------------- Canvas drawing ----------------
+  ctx.fillStyle = '#fff';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.strokeStyle = '#1E2635';
+  ctx.lineWidth = 16;
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+
+  var drawing = false;
+  var lastX = 0, lastY = 0;
+
+  function getPos(e){
+    var rect = canvas.getBoundingClientRect();
+    var scaleX = canvas.width / rect.width;
+    var scaleY = canvas.height / rect.height;
+    var clientX = e.clientX !== undefined ? e.clientX : e.touches[0].clientX;
+    var clientY = e.clientY !== undefined ? e.clientY : e.touches[0].clientY;
+    return { x: (clientX - rect.left) * scaleX, y: (clientY - rect.top) * scaleY };
+  }
+
+  function startDraw(e){
+    drawing = true;
+    var pos = getPos(e);
+    lastX = pos.x; lastY = pos.y;
+    ctx.beginPath();
+    ctx.arc(pos.x, pos.y, 8, 0, Math.PI * 2);
+    ctx.fillStyle = '#1E2635';
+    ctx.fill();
+    e.preventDefault();
+  }
+  function moveDraw(e){
+    if (!drawing) return;
+    var pos = getPos(e);
+    ctx.beginPath();
+    ctx.moveTo(lastX, lastY);
+    ctx.lineTo(pos.x, pos.y);
+    ctx.stroke();
+    lastX = pos.x; lastY = pos.y;
+    e.preventDefault();
+  }
+  function endDraw(){
+    if (!drawing) return;
+    drawing = false;
+    digitize();
+  }
+
+  canvas.addEventListener('mousedown', startDraw);
+  canvas.addEventListener('mousemove', moveDraw);
+  window.addEventListener('mouseup', endDraw);
+  canvas.addEventListener('touchstart', startDraw, {passive:false});
+  canvas.addEventListener('touchmove', moveDraw, {passive:false});
+  canvas.addEventListener('touchend', endDraw);
+
+  clearBtn.addEventListener('click', function(){
+    ctx.fillStyle = '#fff';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    digitize();
+  });
+
+  // ---------------- Digitize ----------------
+  function buildGridDom(){
+    pixelGrid.style.gridTemplateColumns = 'repeat(' + GRID_COLS + ', 1fr)';
+    pixelGrid.style.gridTemplateRows = 'repeat(' + GRID_ROWS + ', 1fr)';
+    pixelGrid.innerHTML = '';
+    for (var i = 0; i < GRID_COLS * GRID_ROWS; i++){
+      var c = document.createElement('div');
+      c.className = 'cell';
+      pixelGrid.appendChild(c);
+    }
+  }
+  buildGridDom();
+
+  function digitize(){
+    var imgData = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
+    var cellW = canvas.width / GRID_COLS;
+    var cellH = canvas.height / GRID_ROWS;
+    var cells = pixelGrid.children;
+
+    for (var row = 0; row < GRID_ROWS; row++){
+      for (var col = 0; col < GRID_COLS; col++){
+        var x0 = Math.floor(col * cellW), x1 = Math.floor((col+1) * cellW);
+        var y0 = Math.floor(row * cellH), y1 = Math.floor((row+1) * cellH);
+        var darkCount = 0, total = 0;
+        for (var y = y0; y < y1; y += 3){
+          for (var x = x0; x < x1; x += 3){
+            var idx = (y * canvas.width + x) * 4;
+            var r = imgData[idx], g = imgData[idx+1], b = imgData[idx+2];
+            var brightness = (r + g + b) / 3;
+            if (brightness < 180) darkCount++;
+            total++;
+          }
+        }
+        var frac = total ? darkCount / total : 0;
+        var isOn = frac > 0.22 ? 1 : 0;
+        var idx2 = row * GRID_COLS + col;
+        currentGrid[idx2] = isOn;
+        cells[idx2].className = 'cell' + (isOn ? ' on' : '');
+      }
+    }
+    updateButtonStates();
+  }
+  digitize();
+
+  function hasDrawing(){
+    return currentGrid.some(function(v){ return v === 1; });
+  }
+
+  // ---------------- Digit label picker ----------------
+  var digitButtons = {};
+  for (var d = 0; d <= 9; d++){
+    (function(d){
+      var btn = document.createElement('button');
+      btn.className = 'digit-btn';
+      btn.innerHTML = d + '<span class="digit-count" id="count-' + d + '" style="display:none;">0</span>';
+      btn.addEventListener('click', function(){
+        selectedLabel = d;
+        Object.keys(digitButtons).forEach(function(k){ digitButtons[k].classList.remove('selected'); });
+        btn.classList.add('selected');
+        updateButtonStates();
+      });
+      digitGrid.appendChild(btn);
+      digitButtons[d] = btn;
+    })(d);
+  }
+
+  function updateButtonStates(){
+    addBtn.disabled = !(hasDrawing() && selectedLabel !== null);
+    var labelsWithData = {};
+    trainingData.forEach(function(ex){ labelsWithData[ex.label] = true; });
+    var distinctLabels = Object.keys(labelsWithData).length;
+    predictBtn.disabled = !(hasDrawing() && distinctLabels >= 2);
+  }
+
+  // ---------------- Training ----------------
+  addBtn.addEventListener('click', function(){
+    if (selectedLabel === null || !hasDrawing()) return;
+    trainingData.push({ label: selectedLabel, grid: currentGrid.slice() });
+
+    var countEl = document.getElementById('count-' + selectedLabel);
+    var count = trainingData.filter(function(ex){ return ex.label === selectedLabel; }).length;
+    countEl.textContent = count;
+    countEl.style.display = 'flex';
+
+    trainTotal.textContent = trainingData.length + ' training example' + (trainingData.length === 1 ? '' : 's') + ' collected';
+
+    // clear canvas for next drawing
+    ctx.fillStyle = '#fff';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    digitize();
+  });
+
+  resetTrainingBtn.addEventListener('click', function(){
+    trainingData = [];
+    trainTotal.textContent = '0 training examples collected';
+    Object.keys(digitButtons).forEach(function(k){
+      var countEl = document.getElementById('count-' + k);
+      countEl.textContent = '0';
+      countEl.style.display = 'none';
+    });
+    predictResults.innerHTML = '<div class="predict-empty">Draw something and add a few training examples first.</div>';
+    updateButtonStates();
+  });
+
+  // ---------------- Predict ----------------
+  predictBtn.addEventListener('click', function(){
+    var labelGroups = {};
+    trainingData.forEach(function(ex){
+      if (!labelGroups[ex.label]) labelGroups[ex.label] = [];
+      labelGroups[ex.label].push(ex.grid);
+    });
+
+    var scores = [];
+    Object.keys(labelGroups).forEach(function(label){
+      var grids = labelGroups[label];
+      var cellCount = GRID_COLS * GRID_ROWS;
+      var template = new Array(cellCount).fill(0);
+      grids.forEach(function(g){
+        for (var i = 0; i < cellCount; i++) template[i] += g[i];
+      });
+      for (var i = 0; i < cellCount; i++) template[i] /= grids.length;
+
+      var agreement = 0;
+      for (var i = 0; i < cellCount; i++){
+        var drawn = currentGrid[i];
+        agreement += drawn ? template[i] : (1 - template[i]);
+      }
+      agreement /= cellCount;
+      var scorePct = Math.round((agreement - 0.5) * 200);
+      scores.push({ label: label, score: scorePct, n: grids.length });
+    });
+
+    scores.sort(function(a, b){ return b.score - a.score; });
+
+    predictResults.innerHTML = '';
+    scores.forEach(function(s, idx){
+      var row = document.createElement('div');
+      row.className = 'predict-row' + (idx === 0 ? ' top' : '');
+      var barPct = Math.max(0, Math.min(100, (s.score + 100) / 2));
+      row.innerHTML =
+        '<div><span class="predict-label">' + s.label + '</span></div>' +
+        '<div style="flex:1; margin:0 8px;"><div class="predict-bar-track"><div class="predict-bar-fill" style="width:' + barPct + '%;"></div></div></div>' +
+        '<div class="predict-score ' + (s.score >= 0 ? 'positive' : 'negative') + '">' + (s.score >= 0 ? '+' : '') + s.score + '%</div>';
+      predictResults.appendChild(row);
+    });
+  });
+
+  updateButtonStates();
+})();
+</script>
+</body>
+</html>
